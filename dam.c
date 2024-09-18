@@ -181,9 +181,9 @@ bar_draw(Bar *bar)
 	}
 
 	for (i = 0; i < LENGTH(tags); i++) {
-		w = TEXTW(bar, tags[i]);
+		w = TEXTW(bar, tags[i]) + tagspadding;
 		drwl_setscheme(bar->drw, colors[bar->mtags & 1 << i ? SchemeSel : SchemeNorm]);
-		drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, tags[i], bar->urg & 1 << i);
+		drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2 + tagspadding / 2, tags[i], bar->urg & 1 << i);
 		if (bar->ctags & 1 << i)
 			drwl_rect(bar->drw, x + boxs, boxs, boxw, boxw, 0,
 				bar->urg & 1 << i);
@@ -452,7 +452,7 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 	lw = TEXTW(selbar, selbar->layout);
 
 	do
-		x += TEXTW(selbar, tags[i]);
+		x += TEXTW(selbar, tags[i]) + tagspadding;
 	while (pointer.x >= x && ++i < LENGTH(tags));
 
 	if (i < LENGTH(tags))
