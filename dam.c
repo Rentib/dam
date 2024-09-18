@@ -591,6 +591,46 @@ readstdin(void)
 }
 
 static void
+reload()
+{
+	char output[256];
+	FILE *xrdb;
+
+	if (!(xrdb = popen("xrdb -query | grep -E '^\\*dwm\\.normbgcolor:' | awk '{print $NF}'", "r")))
+		die("popen:");
+	if (!fgets(output, sizeof(output), xrdb))
+		die("fgets:");
+	output[strcspn(output, "\n")] = '\0';
+	parse_color(&colors[SchemeNorm][ColBg], output);
+
+	if (!(xrdb = popen("xrdb -query | grep -E '^\\*dwm\\.normfgcolor:' | awk '{print $NF}'", "r")))
+		die("popen:");
+	if (!fgets(output, sizeof(output), xrdb))
+		die("fgets:");
+	pclose(xrdb);
+	output[strcspn(output, "\n")] = '\0';
+	parse_color(&colors[SchemeNorm][ColFg], output);
+
+	if (!(xrdb = popen("xrdb -query | grep -E '^\\*dwm\\.selbgcolor:' | awk '{print $NF}'", "r")))
+		die("popen:");
+	if (!fgets(output, sizeof(output), xrdb))
+		die("fgets:");
+	pclose(xrdb);
+	output[strcspn(output, "\n")] = '\0';
+	parse_color(&colors[SchemeSel][ColBg], output);
+
+	if (!(xrdb = popen("xrdb -query | grep -E '^\\*dwm\\.selfgcolor:' | awk '{print $NF}'", "r")))
+		die("popen:");
+	if (!fgets(output, sizeof(output), xrdb))
+		die("fgets:");
+	pclose(xrdb);
+	output[strcspn(output, "\n")] = '\0';
+	parse_color(&colors[SchemeSel][ColFg], output);
+
+	bars_draw();
+}
+
+static void
 setup(void)
 {
 	sigset_t mask;
@@ -610,6 +650,7 @@ setup(void)
 
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGUSR1);
+	sigaddset(&mask, SIGUSR2);
 	sigaddset(&mask, SIGTERM);
 
 	if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
@@ -637,6 +678,8 @@ setup(void)
 		if (showbar)
 			bar_init_surface(bar);
 	}
+
+	reload();
 }
 
 static void
@@ -676,6 +719,8 @@ run(void)
 				die("signalfd/read:");
 			if (si.ssi_signo == SIGUSR1)
 				bars_toggle_selected();
+			else if (si.ssi_signo == SIGUSR2)
+				reload();
 			else if (si.ssi_signo == SIGTERM)
 				break;
 		}
