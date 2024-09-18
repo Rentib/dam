@@ -152,7 +152,7 @@ bar_load_fonts(Bar *bar)
 	if (!(drwl_font_create(bar->drw, LENGTH(fonts), fonts, fontattrs)))
 		die("failed to load fonts");
 	bar->lrpad = bar->drw->font->height;
-	bar->height = bar->drw->font->height + 2;
+	bar->height = barheight ? barheight : bar->drw->font->height + 2;
 }
 
 static void

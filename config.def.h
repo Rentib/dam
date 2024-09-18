@@ -4,6 +4,7 @@ static int topbar            = 1; /* 0 means bottom bar */
 static int showtitle         = 1; /* 0 means no title */
 static int showmode          = 1; /* 0 means no mode */
 static int showlayout        = 1; /* 0 means no layout */
+static int barheight         = 20; /* 0 for font height bar */
 static const char *fonts[]   = { "monospace:size=10" };
 static uint32_t colors[][3]  = {
 	/*               fg          bg         */
