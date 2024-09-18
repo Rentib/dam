@@ -190,18 +190,20 @@ bar_draw(Bar *bar)
 		x += w;
 	}
 
-	w = TEXTW(bar, mode);
-	drwl_setscheme(bar->drw, colors[SchemeSel]);
-	x = drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, mode, 0);
+	if (showmode) {
+		w = TEXTW(bar, mode);
+		drwl_setscheme(bar->drw, colors[SchemeSel]);
+		x = drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, mode, 0);
+	}
 
-	if (bar->layout) {
+	if (showlayout && bar->layout) {
 		w = TEXTW(bar, bar->layout);
 		drwl_setscheme(bar->drw, colors[SchemeNorm]);
 		x = drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, bar->layout, 0);
 	}
 
 	if ((w = bar->width - tw - x) > bar->height) {
-		if (bar->title && *bar->title != '\0') {
+		if (showtitle && bar->title && *bar->title != '\0') {
 			drwl_setscheme(bar->drw, colors[bar == selbar ? SchemeSel : SchemeNorm]);
 			drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, bar->title, 0);
 		} else {
@@ -441,7 +443,7 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 {
 	int lw, mw = 0;
 	unsigned int i = 0, /* j = 0, */ x = 0;
-	unsigned int click;
+	unsigned int click = -1;
 	char tagbuf[4];
 
 	if (!pointer.button || !selbar)
@@ -455,13 +457,13 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 
 	if (i < LENGTH(tags))
 		click = ClkTagBar;
-	else if (pointer.x > x + lw && pointer.x < x + lw + mw)
+	else if (showmode && pointer.x > x + lw && pointer.x < x + lw + mw)
 		click = ClkMode;
-	else if (pointer.x < x + lw)
+	else if (showlayout && pointer.x < x + lw)
 		click = ClkLayout;
 	else if (pointer.x > selbar->width - (int)TEXTW(selbar, stext))
 		click = ClkStatus;
-	else
+	else if (showtitle)
 		click = ClkTitle;
 
 	switch (click) {
@@ -486,6 +488,8 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 		break;
 	case ClkStatus:
 		/* dwm spawns termcmd */
+		break;
+	default:
 		break;
 	}
 }
