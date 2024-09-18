@@ -1,4 +1,4 @@
-# dam
+# [dam]
 
 dam is a itsy-bitsy dwm-esque bar for [river].
 
