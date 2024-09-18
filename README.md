@@ -29,4 +29,5 @@ make install
 
 Run `dam`.
 
+[dam]:   https://codeberg.org/sewn/dam
 [river]: https://codeberg.org/river
