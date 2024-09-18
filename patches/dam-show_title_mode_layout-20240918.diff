@@ -1,0 +1,92 @@
+From 640910619b64a09ab7849682ba38e75efdfeee6a Mon Sep 17 00:00:00 2001
+From: Rentib <sbitner420@tutanota.com>
+Date: Wed, 18 Sep 2024 14:44:04 +0200
+Subject: [PATCH] flags to show title, mode and layout
+
+---
+ config.def.h |  3 +++
+ dam.c        | 22 +++++++++++++---------
+ 2 files changed, 16 insertions(+), 9 deletions(-)
+
+diff --git a/config.def.h b/config.def.h
+index 71bb4ec..072701f 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -1,6 +1,9 @@
+ /* appearance */
+ static int showbar           = 1; /* 0 means no bar */
+ static int topbar            = 1; /* 0 means bottom bar */
++static int showtitle         = 1; /* 0 means no title */
++static int showmode          = 1; /* 0 means no mode */
++static int showlayout        = 1; /* 0 means no layout */
+ static const char *fonts[]   = { "monospace:size=10" };
+ static uint32_t colors[][3]  = {
+ 	/*               fg          bg         */
+diff --git a/dam.c b/dam.c
+index 2d414ab..2e92de9 100644
+--- a/dam.c
++++ b/dam.c
+@@ -190,18 +190,20 @@ bar_draw(Bar *bar)
+ 		x += w;
+ 	}
+ 
+-	w = TEXTW(bar, mode);
+-	drwl_setscheme(bar->drw, colors[SchemeSel]);
+-	x = drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, mode, 0);
++	if (showmode) {
++		w = TEXTW(bar, mode);
++		drwl_setscheme(bar->drw, colors[SchemeSel]);
++		x = drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, mode, 0);
++	}
+ 
+-	if (bar->layout) {
++	if (showlayout && bar->layout) {
+ 		w = TEXTW(bar, bar->layout);
+ 		drwl_setscheme(bar->drw, colors[SchemeNorm]);
+ 		x = drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, bar->layout, 0);
+ 	}
+ 
+ 	if ((w = bar->width - tw - x) > bar->height) {
+-		if (bar->title && *bar->title != '\0') {
++		if (showtitle && bar->title && *bar->title != '\0') {
+ 			drwl_setscheme(bar->drw, colors[bar == selbar ? SchemeSel : SchemeNorm]);
+ 			drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, bar->title, 0);
+ 		} else {
+@@ -441,7 +443,7 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
+ {
+ 	int lw, mw = 0;
+ 	unsigned int i = 0, /* j = 0, */ x = 0;
+-	unsigned int click;
++	unsigned int click = -1;
+ 	char tagbuf[4];
+ 
+ 	if (!pointer.button || !selbar)
+@@ -455,13 +457,13 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
+ 
+ 	if (i < LENGTH(tags))
+ 		click = ClkTagBar;
+-	else if (pointer.x > x + lw && pointer.x < x + lw + mw)
++	else if (showmode && pointer.x > x + lw && pointer.x < x + lw + mw)
+ 		click = ClkMode;
+-	else if (pointer.x < x + lw)
++	else if (showlayout && pointer.x < x + lw)
+ 		click = ClkLayout;
+ 	else if (pointer.x > selbar->width - (int)TEXTW(selbar, stext))
+ 		click = ClkStatus;
+-	else
++	else if (showtitle)
+ 		click = ClkTitle;
+ 
+ 	switch (click) {
+@@ -487,6 +489,8 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
+ 	case ClkStatus:
+ 		/* dwm spawns termcmd */
+ 		break;
++	default:
++		break;
+ 	}
+ }
+ 
+-- 
+2.46.1
+

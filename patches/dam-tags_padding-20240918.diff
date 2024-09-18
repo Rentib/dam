@@ -1,0 +1,47 @@
+From 429447ebc46431ff4e730b7b4cdad665dd1b996f Mon Sep 17 00:00:00 2001
+From: Rentib <sbitner420@tutanota.com>
+Date: Wed, 18 Sep 2024 15:01:21 +0200
+Subject: [PATCH] tags padding
+
+---
+ config.def.h | 1 +
+ dam.c        | 6 +++---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/config.def.h b/config.def.h
+index 26d11d8..cf3b469 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -14,3 +14,4 @@ static uint32_t colors[][3]  = {
+ 
+ /* tagging */
+ static char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
++static int tagspadding = 4;
+diff --git a/dam.c b/dam.c
+index 3c7709d..dfcf9e6 100644
+--- a/dam.c
++++ b/dam.c
+@@ -181,9 +181,9 @@ bar_draw(Bar *bar)
+ 	}
+ 
+ 	for (i = 0; i < LENGTH(tags); i++) {
+-		w = TEXTW(bar, tags[i]);
++		w = TEXTW(bar, tags[i]) + tagspadding;
+ 		drwl_setscheme(bar->drw, colors[bar->mtags & 1 << i ? SchemeSel : SchemeNorm]);
+-		drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, tags[i], bar->urg & 1 << i);
++		drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2 + tagspadding / 2, tags[i], bar->urg & 1 << i);
+ 		if (bar->ctags & 1 << i)
+ 			drwl_rect(bar->drw, x + boxs, boxs, boxw, boxw, 0,
+ 				bar->urg & 1 << i);
+@@ -452,7 +452,7 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
+ 	lw = TEXTW(selbar, selbar->layout);
+ 
+ 	do
+-		x += TEXTW(selbar, tags[i]);
++		x += TEXTW(selbar, tags[i]) + tagspadding;
+ 	while (pointer.x >= x && ++i < LENGTH(tags));
+ 
+ 	if (i < LENGTH(tags))
+-- 
+2.46.1
+

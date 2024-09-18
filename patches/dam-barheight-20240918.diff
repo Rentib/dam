@@ -1,0 +1,35 @@
+From b7048bb724e02638d28aa0b19700636f0ffb542a Mon Sep 17 00:00:00 2001
+From: Rentib <sbitner420@tutanota.com>
+Date: Wed, 18 Sep 2024 14:48:16 +0200
+Subject: [PATCH] bar height
+
+---
+ config.def.h | 1 +
+ dam.c        | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/config.def.h b/config.def.h
+index 072701f..26d11d8 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -4,6 +4,7 @@ static int topbar            = 1; /* 0 means bottom bar */
++static int barheight         = 20; /* 0 for font height bar */
+ static const char *fonts[]   = { "monospace:size=10" };
+ static uint32_t colors[][3]  = {
+ 	/*               fg          bg         */
+diff --git a/dam.c b/dam.c
+index 2e92de9..3c7709d 100644
+--- a/dam.c
++++ b/dam.c
+@@ -152,7 +152,7 @@ bar_load_fonts(Bar *bar)
+ 	if (!(drwl_font_create(bar->drw, LENGTH(fonts), fonts, fontattrs)))
+ 		die("failed to load fonts");
+ 	bar->lrpad = bar->drw->font->height;
+-	bar->height = bar->drw->font->height + 2;
++	bar->height = barheight ? barheight : bar->drw->font->height + 2;
+ }
+ 
+ static void
+-- 
+2.46.1
+
