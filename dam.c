@@ -45,12 +45,25 @@ typedef struct {
 	struct wl_list link;
 } Bar;
 
+typedef union {
+	int i;
+	unsigned int ui;
+	float f;
+	const void *v;
+} Arg;
+
 typedef struct {
 	unsigned int click;
 	unsigned int button;
-	void (*func)(uint32_t);
-	uint32_t arg;
+	void (*func)(const Arg *arg);
+	const Arg arg;
 } Button;
+
+static void view(const Arg *arg);
+static void toggleview(const Arg *arg);
+static void toggletag(const Arg *arg);
+static void zoom(const Arg *arg);
+static void spawn(const Arg *arg);
 
 #include "config.h"
 
@@ -118,6 +131,53 @@ parse_color(uint32_t *dest, const char *src)
 	*dest = strtoul(src, NULL, 16);
 	if (len == 6)
 		*dest = (*dest << 8) | 0xFF;
+}
+
+void
+view(const Arg *arg)
+{
+	char tagbuf[4];
+	zriver_control_v1_add_argument(control, "set-focused-tags");
+	snprintf(tagbuf, sizeof(tagbuf), "%d", arg->ui);
+	zriver_control_v1_add_argument(control, tagbuf);
+	zriver_control_v1_run_command(control, seat);
+}
+
+void
+toggleview(const Arg *arg)
+{
+	char tagbuf[4];
+	zriver_control_v1_add_argument(control, "toggle-focused-tags");
+	snprintf(tagbuf, sizeof(tagbuf), "%d", arg->ui);
+	zriver_control_v1_add_argument(control, tagbuf);
+	zriver_control_v1_run_command(control, seat);
+}
+
+void
+toggletag(const Arg *arg)
+{
+	char tagbuf[4];
+	zriver_control_v1_add_argument(control, "set-view-tags");
+	snprintf(tagbuf, sizeof(tagbuf), "%d", arg->ui);
+	zriver_control_v1_add_argument(control, tagbuf);
+	zriver_control_v1_run_command(control, seat);
+}
+
+static void
+zoom(const Arg *arg)
+{
+	zriver_control_v1_add_argument(control, "zoom");
+	zriver_control_v1_run_command(control, seat);
+}
+
+static void
+spawn(const Arg *arg)
+{
+	char *const *i;
+	zriver_control_v1_add_argument(control, "spawn");
+	for (i = (char *const *)arg->v; *i != NULL; i++)
+		zriver_control_v1_add_argument(control, *i);
+	zriver_control_v1_run_command(control, seat);
 }
 
 static void
@@ -440,9 +500,9 @@ static void
 pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 {
 	int lw, mw = 0;
+	Arg arg = {0};
 	unsigned int i = 0, /* j = 0, */ x = 0;
 	unsigned int click = -1;
-	char tagbuf[4];
 
 	if (!pointer.button || !selbar)
 		return;
@@ -458,9 +518,10 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 			x += TEXTW(selbar, tags[i]) + tagspadding;
 	} while (pointer.x >= x && ++i < LENGTH(tags));
 
-	if (i < LENGTH(tags))
+	if (i < LENGTH(tags)) {
 		click = ClkTagBar;
-	else if (showmode && pointer.x > x + lw && pointer.x < x + lw + mw)
+		arg.ui = 1 << i;
+	} else if (showmode && pointer.x > x + lw && pointer.x < x + lw + mw)
 		click = ClkMode;
 	else if (showlayout && pointer.x < x + lw)
 		click = ClkLayout;
@@ -469,32 +530,13 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 	else if (showtitle)
 		click = ClkTitle;
 
-	switch (click) {
-	case ClkTagBar:
-		zriver_control_v1_add_argument(control, 
-			pointer.button == BTN_LEFT ? "set-focused-tags" :
-			pointer.button == BTN_MIDDLE ? "toggle-focused-tags" :
-			"set-view-tags");
-		snprintf(tagbuf, sizeof(tagbuf), "%d", 1 << i);
-		zriver_control_v1_add_argument(control, tagbuf);
-		zriver_control_v1_run_command(control, seat);
-		break;
-	case ClkLayout:
-		/* TODO: cannot disable rivertile; change layout to 'floating' */
-		break;
-	case ClkMode:
-		/* TODO: river has no method of getting a list of modes */
-		break;
-	case ClkTitle:
-		zriver_control_v1_add_argument(control, "zoom");
-		zriver_control_v1_run_command(control, seat);
-		break;
-	case ClkStatus:
-		/* dwm spawns termcmd */
-		break;
-	default:
-		break;
-	}
+	for (i = 0; i < LENGTH(buttons); i++) {
+		if (buttons[i].click == click && buttons[i].func
+		&&  buttons[i].button == pointer.button)
+			buttons[i].func(click == ClkTagBar && !buttons[i].arg.i
+					? &arg
+					: &buttons[i].arg);
+        }
 }
 
 static void
