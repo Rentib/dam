@@ -297,6 +297,8 @@ drwl_image_destroy(Img *image)
 static void
 drwl_destroy(Drwl *drwl)
 {
+	if (!drwl)
+		return;
 	if (drwl->font)
 		drwl_font_destroy(drwl->font);
 	if (drwl->image)
