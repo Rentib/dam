@@ -248,9 +248,11 @@ bar_draw(Bar *bar)
 	}
 
 	if (showmode) {
-		w = TEXTW(bar, mode);
-		drwl_setscheme(bar->drw, colors[SchemeSel]);
-		x = drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, mode, 0);
+		if (strcmp(mode, "normal")) {
+			w = TEXTW(bar, mode);
+			drwl_setscheme(bar->drw, colors[SchemeSel]);
+			x = drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, mode, 0);
+		}
 	}
 
 	if (showlayout && bar->layout) {
@@ -398,10 +400,15 @@ static void
 output_status_handle_layout_name(void *data,
 		struct zriver_output_status_v1 *output_status, const char *name)
 {
+	int i;
 	Bar *bar = data;
 
 	if (bar->layout)
 		free(bar->layout);
+
+	for (i = 0; i < LENGTH(layouts); i++)
+		if (!strcmp(name, layouts[i][0]))
+			name = layouts[i][1];
 	bar->layout = strdup(name);
 
 	bar_draw(bar);
