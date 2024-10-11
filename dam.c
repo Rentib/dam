@@ -45,10 +45,9 @@ typedef struct {
 	struct wl_list link;
 } Bar;
 
-typedef union {
-	int i;
+typedef struct {
 	unsigned int ui;
-	float f;
+	char *s;
 	const void *v;
 } Arg;
 
@@ -59,10 +58,7 @@ typedef struct {
 	const Arg arg;
 } Button;
 
-static void view(const Arg *arg);
-static void toggleview(const Arg *arg);
-static void toggletag(const Arg *arg);
-static void zoom(const Arg *arg);
+static void command(const Arg *arg);
 static void spawn(const Arg *arg);
 
 #include "config.h"
@@ -98,7 +94,7 @@ noop()
 	 */
 }
 
-static void
+	static void
 die(const char *fmt, ...)
 {
 	va_list ap;
@@ -117,7 +113,7 @@ die(const char *fmt, ...)
 	exit(1);
 }
 
-static void
+	static void
 parse_color(uint32_t *dest, const char *src)
 {
 	int len;
@@ -133,62 +129,59 @@ parse_color(uint32_t *dest, const char *src)
 		*dest = (*dest << 8) | 0xFF;
 }
 
-void
-view(const Arg *arg)
+	static void
+command_handle_message(void *data,
+		struct zriver_command_callback_v1 *zriver_command_callback_v1,
+		const char *message)
 {
-	char tagbuf[4];
-	zriver_control_v1_add_argument(control, "set-focused-tags");
-	snprintf(tagbuf, sizeof(tagbuf), "%d", arg->ui);
-	zriver_control_v1_add_argument(control, tagbuf);
-	zriver_control_v1_run_command(control, seat);
+	if (message && message[0] != '\0')
+		fprintf(stderr, "command message: %s\n", message);
 }
 
-void
-toggleview(const Arg *arg)
+static struct zriver_command_callback_v1_listener callback_listener = {
+	.success = command_handle_message,
+	.failure = command_handle_message,
+};
+
+	static void
+command_run(void)
 {
-	char tagbuf[4];
-	zriver_control_v1_add_argument(control, "toggle-focused-tags");
-	snprintf(tagbuf, sizeof(tagbuf), "%d", arg->ui);
-	zriver_control_v1_add_argument(control, tagbuf);
-	zriver_control_v1_run_command(control, seat);
+	struct zriver_command_callback_v1 *callback;
+	callback = zriver_control_v1_run_command(control, seat);
+	zriver_command_callback_v1_add_listener(callback, &callback_listener, NULL);
 }
 
-void
-toggletag(const Arg *arg)
+	void
+command(const Arg *arg)
 {
-	char tagbuf[4];
-	zriver_control_v1_add_argument(control, "set-view-tags");
-	snprintf(tagbuf, sizeof(tagbuf), "%d", arg->ui);
-	zriver_control_v1_add_argument(control, tagbuf);
-	zriver_control_v1_run_command(control, seat);
+	char argbuf[4];
+	zriver_control_v1_add_argument(control, arg->s);
+	if (arg->ui) {
+		snprintf(argbuf, sizeof(argbuf), "%d", arg->ui);
+		zriver_control_v1_add_argument(control, argbuf);
+	}
+	command_run();
 }
 
-static void
-zoom(const Arg *arg)
-{
-	zriver_control_v1_add_argument(control, "zoom");
-	zriver_control_v1_run_command(control, seat);
-}
-
-static void
+	void
 spawn(const Arg *arg)
 {
 	char *const *i;
 	zriver_control_v1_add_argument(control, "spawn");
 	for (i = (char *const *)arg->v; *i != NULL; i++)
 		zriver_control_v1_add_argument(control, *i);
-	zriver_control_v1_run_command(control, seat);
+	command_run();
 }
 
-static void
-bar_deinit_surface(Bar *bar)
+	static void
+bar_hide(Bar *bar)
 {
 	zwlr_layer_surface_v1_destroy(bar->layer_surface);
 	wl_surface_destroy(bar->surface);
 	bar->configured = false;
 }
 
-static void
+	static void
 bar_destroy(Bar *bar)
 {
 	wl_list_remove(&bar->link);
@@ -198,11 +191,11 @@ bar_destroy(Bar *bar)
 	drwl_setimage(bar->drw, NULL);
 	drwl_destroy(bar->drw);
 	zriver_output_status_v1_destroy(bar->output_status);
-	bar_deinit_surface(bar);
+	bar_hide(bar);
 	wl_output_destroy(bar->wl_output);
 }
 
-static void
+	static void
 bar_load_fonts(Bar *bar)
 {
 	char fontattrs[12];
@@ -215,12 +208,11 @@ bar_load_fonts(Bar *bar)
 	bar->height = barheight ? barheight : bar->drw->font->height + 2;
 }
 
-static void
+	static void
 bar_draw(Bar *bar)
 {
-	int i;
-	int tw = 0;
-	int x = 0, w;
+	int x = 0, w, tw = 0;
+	unsigned int i;
 	DrwBuf *buf;
 
 	if (!bar->configured)
@@ -229,7 +221,6 @@ bar_draw(Bar *bar)
 	if (!(buf = bufpool_getbuf(&bar->pool, shm, bar->width, bar->height)))
 		die(errno ? "bufpool_getbuf:" : "no buffer available");
 	drwl_setimage(bar->drw, buf->image);
-	drwl_setscheme(bar->drw, colors[SchemeNorm]);
 
 	/* draw status first so it can be overdrawn by tags later */
 	if (bar == selbar) { /* status is only drawn on selected monitor */
@@ -287,12 +278,12 @@ bars_draw()
 		bar_draw(bar);
 }
 
-static void
+	static void
 layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface,
-                        uint32_t serial, uint32_t width, uint32_t height)
+		uint32_t serial, uint32_t width, uint32_t height)
 {
 	Bar *bar = data;
-	
+
 	bar->width = width * bar->scale;
 	bar->height = height * bar->scale;
 	bar->configured = true;
@@ -300,7 +291,7 @@ layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface,
 	bar_draw(bar);
 }
 
-static void
+	static void
 layer_surface_closed(void *data, struct zwlr_layer_surface_v1 *layer_surface)
 {
 	Bar *bar = data;
@@ -308,13 +299,13 @@ layer_surface_closed(void *data, struct zwlr_layer_surface_v1 *layer_surface)
 }
 
 static const struct zwlr_layer_surface_v1_listener layer_surface_listener = {
-    .configure = layer_surface_configure,
-    .closed = layer_surface_closed,
+	.configure = layer_surface_configure,
+	.closed = layer_surface_closed,
 };
 
-static void 
+	static void 
 surface_handle_preferred_scale(void *data,
-	struct wl_surface *wl_surface, int32_t scale)
+		struct wl_surface *wl_surface, int32_t scale)
 {
 	Bar *bar = data;
 	bar->scale = scale;
@@ -329,21 +320,21 @@ static const struct wl_surface_listener surface_listener = {
 	.preferred_buffer_transform = noop,
 };
 
-static void
-bar_init_surface(Bar *bar)
+	static void
+bar_show(Bar *bar)
 {
 	bar->surface = wl_compositor_create_surface(compositor);
 	wl_surface_add_listener(bar->surface, &surface_listener, NULL);
 
 	bar->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-		layer_shell, bar->surface, bar->wl_output, ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM, "bar");
+			layer_shell, bar->surface, bar->wl_output, ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM, "bar");
 	zwlr_layer_surface_v1_add_listener(
-		bar->layer_surface, &layer_surface_listener, bar);
+			bar->layer_surface, &layer_surface_listener, bar);
 	zwlr_layer_surface_v1_set_size(bar->layer_surface, 0, bar->height);
-    zwlr_layer_surface_v1_set_exclusive_zone(bar->layer_surface, bar->height);
+	zwlr_layer_surface_v1_set_exclusive_zone(bar->layer_surface, bar->height);
 	zwlr_layer_surface_v1_set_anchor(bar->layer_surface,
-		(topbar ? ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP : ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM)
-		| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+			(topbar ? ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP : ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM)
+			| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
 	wl_surface_commit(bar->surface);
 }
 
@@ -354,13 +345,13 @@ bars_toggle_selected()
 
 	wl_list_for_each(bar, &bars, link) {
 		if (bar == selbar && bar->configured)
-			bar_deinit_surface(bar);
+			bar_hide(bar);
 		else if (bar == selbar)
-			bar_init_surface(bar);
+			bar_show(bar);
 	}
 }
 
-static void
+	static void
 output_status_handle_focused_tags(void *data,
 		struct zriver_output_status_v1 *output_status, uint32_t tags)
 {
@@ -508,8 +499,8 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 {
 	int lw, mw = 0;
 	Arg arg = {0};
-	unsigned int i = 0, /* j = 0, */ x = 0;
-	unsigned int click = -1;
+	unsigned int i = 0, x = 0;
+	unsigned int tag = 0, click = -1;
 
 	if (!pointer.button || !selbar)
 		return;
@@ -527,7 +518,7 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 
 	if (i < LENGTH(tags)) {
 		click = ClkTagBar;
-		arg.ui = 1 << i;
+		tag = 1 << i;
 	} else if (showmode && pointer.x > x + lw && pointer.x < x + lw + mw)
 		click = ClkMode;
 	else if (showlayout && pointer.x < x + lw)
@@ -537,12 +528,12 @@ pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 	else if (showtitle)
 		click = ClkTitle;
 
-	for (i = 0; i < LENGTH(buttons); i++) {
-		if (buttons[i].click == click && buttons[i].func
-		&&  buttons[i].button == pointer.button)
-			buttons[i].func(click == ClkTagBar && !buttons[i].arg.i
-					? &arg
-					: &buttons[i].arg);
+	for (i = 0; i < LENGTH(buttons); i++)
+		if (buttons[i].click == click && buttons[i].func && buttons[i].button == pointer.button) {
+			arg = buttons[i].arg;
+			if (click == ClkTagBar && !arg.ui)
+				arg.ui = tag;
+			buttons[i].func(&arg);
         }
 }
 
@@ -641,7 +632,7 @@ readstdin(void)
 }
 
 static void
-reload()
+reload(void)
 {
 	char output[256];
 	FILE *xrdb;
@@ -726,7 +717,7 @@ setup(void)
 			&output_status_listener, bar);
 
 		if (showbar)
-			bar_init_surface(bar);
+			bar_show(bar);
 	}
 
 	reload();
