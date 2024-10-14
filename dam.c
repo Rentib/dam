@@ -94,7 +94,7 @@ noop()
 	 */
 }
 
-	static void
+static void
 die(const char *fmt, ...)
 {
 	va_list ap;
@@ -113,7 +113,7 @@ die(const char *fmt, ...)
 	exit(1);
 }
 
-	static void
+static void
 parse_color(uint32_t *dest, const char *src)
 {
 	int len;
@@ -129,7 +129,7 @@ parse_color(uint32_t *dest, const char *src)
 		*dest = (*dest << 8) | 0xFF;
 }
 
-	static void
+static void
 command_handle_message(void *data,
 		struct zriver_command_callback_v1 *zriver_command_callback_v1,
 		const char *message)
@@ -143,7 +143,7 @@ static struct zriver_command_callback_v1_listener callback_listener = {
 	.failure = command_handle_message,
 };
 
-	static void
+static void
 command_run(void)
 {
 	struct zriver_command_callback_v1 *callback;
@@ -151,7 +151,7 @@ command_run(void)
 	zriver_command_callback_v1_add_listener(callback, &callback_listener, NULL);
 }
 
-	void
+void
 command(const Arg *arg)
 {
 	char argbuf[4];
@@ -163,7 +163,7 @@ command(const Arg *arg)
 	command_run();
 }
 
-	void
+void
 spawn(const Arg *arg)
 {
 	char *const *i;
@@ -173,7 +173,7 @@ spawn(const Arg *arg)
 	command_run();
 }
 
-	static void
+static void
 bar_hide(Bar *bar)
 {
 	zwlr_layer_surface_v1_destroy(bar->layer_surface);
@@ -181,7 +181,7 @@ bar_hide(Bar *bar)
 	bar->configured = false;
 }
 
-	static void
+static void
 bar_destroy(Bar *bar)
 {
 	wl_list_remove(&bar->link);
@@ -195,7 +195,7 @@ bar_destroy(Bar *bar)
 	wl_output_destroy(bar->wl_output);
 }
 
-	static void
+static void
 bar_load_fonts(Bar *bar)
 {
 	char fontattrs[12];
@@ -208,7 +208,7 @@ bar_load_fonts(Bar *bar)
 	bar->height = barheight ? barheight : bar->drw->font->height + 2;
 }
 
-	static void
+static void
 bar_draw(Bar *bar)
 {
 	int x = 0, w, tw = 0;
@@ -278,7 +278,7 @@ bars_draw()
 		bar_draw(bar);
 }
 
-	static void
+static void
 layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface,
 		uint32_t serial, uint32_t width, uint32_t height)
 {
@@ -291,7 +291,7 @@ layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface,
 	bar_draw(bar);
 }
 
-	static void
+static void
 layer_surface_closed(void *data, struct zwlr_layer_surface_v1 *layer_surface)
 {
 	Bar *bar = data;
@@ -303,7 +303,7 @@ static const struct zwlr_layer_surface_v1_listener layer_surface_listener = {
 	.closed = layer_surface_closed,
 };
 
-	static void 
+static void 
 surface_handle_preferred_scale(void *data,
 		struct wl_surface *wl_surface, int32_t scale)
 {
@@ -320,7 +320,7 @@ static const struct wl_surface_listener surface_listener = {
 	.preferred_buffer_transform = noop,
 };
 
-	static void
+static void
 bar_show(Bar *bar)
 {
 	bar->surface = wl_compositor_create_surface(compositor);
@@ -351,7 +351,7 @@ bars_toggle_selected()
 	}
 }
 
-	static void
+static void
 output_status_handle_focused_tags(void *data,
 		struct zriver_output_status_v1 *output_status, uint32_t tags)
 {
