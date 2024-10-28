@@ -204,9 +204,9 @@ bar_load_fonts(Bar *bar)
 	snprintf(fontattrs, sizeof(fontattrs), "dpi=%d", 96 * bar->scale);
 	if (!(drwl_font_create(bar->drw, LENGTH(fonts), fonts, fontattrs)))
 		die("failed to load fonts");
+
 	bar->lrpad = bar->drw->font->height;
 	bar->height = barheight ? barheight : bar->drw->font->height + 2;
-
 	if (bar->layer_surface) {
 		zwlr_layer_surface_v1_set_size(bar->layer_surface, 0, bar->height / bar->scale);
 		zwlr_layer_surface_v1_set_exclusive_zone(bar->layer_surface, bar->height / bar->scale);
@@ -281,7 +281,6 @@ frame_callback_handle_done(void *data, struct wl_callback *callback,
 		uint32_t time)
 {
 	Bar *bar = data;
-
 	wl_callback_destroy(bar->frame_callback);
 	bar->frame_callback = NULL;
 	bar_draw(bar);
@@ -319,7 +318,6 @@ output_status_handle_focused_tags(void *data,
 		struct zriver_output_status_v1 *output_status, uint32_t tags)
 {
 	Bar *bar = data;
-
 	bar->mtags = tags;
 	bar_frame(bar);
 }
@@ -329,7 +327,6 @@ output_status_handle_urgent_tags(void *data,
 		struct zriver_output_status_v1 *output_status, uint32_t tags)
 {
 	Bar *bar = data;
-
 	bar->urg = tags;
 	bar_frame(bar);
 }
@@ -340,7 +337,6 @@ output_status_handle_view_tags(void *data,
 {
 	uint32_t *vt;
 	Bar *bar = data;
-
 	bar->ctags = 0;
 	wl_array_for_each(vt, wl_array)
 		bar->ctags |= *vt;
@@ -353,7 +349,6 @@ output_status_handle_layout_name(void *data,
 {
 	int i;
 	Bar *bar = data;
-
 	if (bar->layout)
 		free(bar->layout);
 	for (i = 0; i < LENGTH(layouts); i++)
@@ -368,7 +363,6 @@ output_status_handle_layout_name_clear(void *data,
 		struct zriver_output_status_v1 *output_status)
 {
 	Bar *bar = data;
-
 	if (bar->layout)
 		free(bar->layout);
 	bar->layout = NULL;
@@ -394,6 +388,9 @@ bar_hide(Bar *bar)
 static void
 bar_destroy(Bar *bar)
 {
+	if (bar == selbar)
+		selbar = NULL;
+
 	wl_list_remove(&bar->link);
 	bufpool_cleanup(&bar->pool);
 	if (bar->layout)
@@ -416,7 +413,6 @@ layer_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface,
 
 	if (bar->width / bar->scale == width && bar->height / bar->scale == height)
 		return;
-
 	bar->width = width * bar->scale;
 	bar->height = height * bar->scale;
 	bar->configured = true;
@@ -457,13 +453,11 @@ static void
 bars_toggle_selected(void)
 {
 	Bar *bar;
-
-	wl_list_for_each(bar, &bars, link) {
+	wl_list_for_each(bar, &bars, link)
 		if (bar == selbar && bar->configured)
 			bar_hide(bar);
 		else if (bar == selbar)
 			bar_show(bar);
-	}
 }
 
 static void
@@ -473,11 +467,9 @@ output_handle_done(void *data, struct wl_output *wl_output)
 
 	if (bar->drw)
 		return;
-
 	if (!(bar->drw = drwl_create()))
 		die("failed to create drwl context");
 	bar_load_fonts(bar);
-
 	bar->output_status = zriver_status_manager_v1_get_river_output_status(
 		status_manager, bar->wl_output);
 	zriver_output_status_v1_add_listener(bar->output_status,
@@ -491,7 +483,6 @@ static void
 output_handle_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
 	Bar *bar = data;
-
 	bar->scale = factor;
 	if (bar->drw)
 		bar_load_fonts(bar);
@@ -526,10 +517,8 @@ seat_status_handle_unfocused_output(void *data, struct zriver_seat_status_v1 *se
 				   struct wl_output *wl_output)
 {
 	Bar *oldbar;
-
 	if (!selbar)
 		return;
-
 	oldbar = selbar;
 	selbar = NULL;
 	bar_frame(oldbar);
@@ -541,7 +530,6 @@ seat_status_handle_focused_view(void *data,
 {
 	if (!selbar)
 		return;
-
 	if (selbar->title)
 		free(selbar->title);
 	selbar->title = NULL;
@@ -574,7 +562,6 @@ pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time,
 	pointer.button = 0;
 	if (!selbar)
 		return;
-
 	pointer.x = wl_fixed_to_int(surface_x) * selbar->scale;
 	pointer.y = wl_fixed_to_int(surface_y) * selbar->scale;
 }
@@ -689,7 +676,6 @@ static void
 registry_handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 {
 	Bar *bar, *bar_tmp;
-
 	wl_list_for_each_safe(bar, bar_tmp, &bars, link)
 		if (bar->wl_name == name) {
 			bar_destroy(bar);
@@ -710,9 +696,9 @@ readstdin(void)
 	n = read(STDIN_FILENO, stext, sizeof(stext) - 1);
 	if (n < 0)
 		die("read:");
-
 	stext[n] = '\0';
 	stext[strcspn(stext, "\n")] = '\0';
+
 	bars_draw();
 }
 
@@ -861,7 +847,6 @@ cleanup(void)
 	wl_list_for_each_safe(bar, bar_tmp, &bars, link)
 		bar_destroy(bar);
 	zriver_seat_status_v1_destroy(seat_status);
-
 	drwl_fini();
 	zriver_status_manager_v1_destroy(status_manager);
 	zriver_control_v1_destroy(control);
@@ -912,5 +897,6 @@ main(int argc, char *argv[])
 	setup();
 	run();
 	cleanup();
+
 	return EXIT_SUCCESS;
 }
