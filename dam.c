@@ -231,8 +231,8 @@ bar_draw(Bar *bar)
 	/* draw status first so it can be overdrawn by tags later */
 	if (bar == selbar) { /* status is only drawn on selected monitor */
 		drwl_setscheme(bar->drw, colors[SchemeNorm]);
-		tw = TEXTW(bar, stext) - bar->lrpad + 2; /* 2px right padding */
-		drwl_text(bar->drw, bar->width - tw, 0, tw, bar->height, 0, stext, 0);
+		tw = TEXTW(bar, stext);
+		drwl_text(bar->drw, bar->width - tw, 0, tw, bar->height, bar->lrpad / 2, stext, 0);
 	}
 
 	for (i = 0; i < LENGTH(tags); i++) {
@@ -252,7 +252,8 @@ bar_draw(Bar *bar)
 		}
 	}
 
-	if (showlayout && bar->layout) {
+	if (showlayout) {
+		bar->layout = bar->layout ? bar->layout : strdup(layouts[LENGTH(layouts)-1][1]);
 		w = TEXTW(bar, bar->layout);
 		drwl_setscheme(bar->drw, colors[SchemeNorm]);
 		x = drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, bar->layout, 0);
@@ -352,7 +353,7 @@ output_status_handle_layout_name(void *data,
 	if (bar->layout)
 		free(bar->layout);
 	for (i = 0; i < LENGTH(layouts); i++)
-		if (!strcmp(name, layouts[i][0]))
+		if (layouts[i][0] && !strcmp(name, layouts[i][0]))
 			name = layouts[i][1];
 	bar->layout = strdup(name);
 	bar_frame(bar);
@@ -477,6 +478,7 @@ output_handle_done(void *data, struct wl_output *wl_output)
 
 	if (showbar)
 		bar_show(bar);
+		
 }
 
 static void
@@ -535,7 +537,9 @@ seat_status_handle_focused_view(void *data,
 	selbar->title = NULL;
 	if (title[0] != '\0')
 		selbar->title = strdup(title);
-	bar_frame(selbar);
+	/* river sends focused_view too early, before bar surface init */
+	if (selbar->surface)
+		bar_frame(selbar);
 }
 
 static void
@@ -669,6 +673,10 @@ registry_handle_global(void *data, struct wl_registry *wl_registry,
 		bar->wl_output = wl_registry_bind(registry, name, &wl_output_interface, 2);
 		wl_output_add_listener(bar->wl_output, &output_listener, bar);
 		wl_list_insert(&bars, &bar->link);
+
+		/* https://codeberg.org/river/river/issues/1160 */
+		if (wl_list_length(&bars) == 1)
+			selbar = bar;
 	}
 }
 
