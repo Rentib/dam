@@ -1,4 +1,5 @@
 /* See LICENSE file for copyright and license details. */
+#include <assert.h>
 #include <errno.h>
 #include <getopt.h>
 #include <linux/input-event-codes.h>
@@ -12,8 +13,8 @@
 #include <unistd.h>
 #include <wayland-client.h>
 
-#include "drwl.h"
-#include "bufpool.h"
+#include "drwl/drwl.h"
+#include "drwl/bufpool.h"
 #include "river-status-unstable-v1-protocol.h"
 #include "river-control-unstable-v1-protocol.h"
 #include "wlr-layer-shell-unstable-v1-protocol.h"
@@ -260,13 +261,11 @@ bar_draw(Bar *bar)
 	}
 
 	if ((w = bar->width - tw - x) > bar->height) {
-		if (showtitle && bar->title && *bar->title != '\0') {
-			drwl_setscheme(bar->drw, colors[bar == selbar ? SchemeSel : SchemeNorm]);
+		drwl_setscheme(bar->drw, colors[bar == selbar && showtitle && bar->title ? SchemeSel : SchemeNorm]);
+		if (showtitle && bar->title)
 			drwl_text(bar->drw, x, 0, w, bar->height, bar->lrpad / 2, bar->title, 0);
-		} else {
-			drwl_setscheme(bar->drw, colors[SchemeNorm]);
+		else
 			drwl_rect(bar->drw, x, 0, w, bar->height, 1, 1);
-		}
 	}
 
 	drwl_setimage(bar->drw, NULL);
@@ -773,6 +772,7 @@ setup(void)
 	sigaddset(&mask, SIGUSR1);
 	sigaddset(&mask, SIGUSR2);
 	sigaddset(&mask, SIGTERM);
+	sigaddset(&mask, SIGINT);
 
 	if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
 		die("sigprocmask:");
@@ -799,19 +799,16 @@ run(void)
 	};
 
 	for (;;) {
-		if (wl_display_prepare_read(display) < 0)
-			if (wl_display_dispatch_pending(display) < 0)
-				die("wl_display_dispatch_pending:");
+		wl_display_flush(display);
 
-		if (wl_display_flush(display) < 0)
-			die("wl_display_flush:");
-
-		if (poll(pfds, 3, -1) < 0) {
-			wl_display_cancel_read(display);
+		while (poll(pfds, 3, -1) < 0)
 			die("poll:");
-		}
 
-		if (pfds[1].revents & POLLHUP) {
+		if (pfds[0].revents & POLLIN)
+			if (wl_display_dispatch(display) < 0)
+				die("display dispatch failed");
+
+		if (pfds[1].revents & POLLHUP) { /* stdin closed */
 			pfds[1].fd = -1;
 			stext[0] = '\0';
 			bars_draw();
@@ -828,19 +825,10 @@ run(void)
 				bars_toggle_selected();
 			else if (si.ssi_signo == SIGUSR2)
 				reload();
-			else if (si.ssi_signo == SIGTERM)
+			else if (si.ssi_signo == SIGTERM ||
+			         si.ssi_signo == SIGINT)
 				break;
 		}
-
-		if (!(pfds[0].revents & POLLIN)) {
-			wl_display_cancel_read(display);
-			continue;
-		}
-
-		if (wl_display_read_events(display) < 0)
-			die("wl_display_read_events:");
-		if (wl_display_dispatch_pending(display) < 0)
-			die("wl_display_dispatch_pending");
 	}
 }
 
@@ -864,6 +852,7 @@ cleanup(void)
 	wl_compositor_destroy(compositor);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
+	close(signal_fd); /* ignore error */
 }
 
 static void
